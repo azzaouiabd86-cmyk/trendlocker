@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>My Google AI Studio App</title>
+    <script>
+      // Prevent polyfills from crashing when trying to overwrite read-only fetch
+      (function() {
+        try {
+          const originalFetch = window.fetch;
+          if (originalFetch) {
+            Object.defineProperty(window, 'fetch', {
+              configurable: true,
+              enumerable: true,
+              get: function() { return originalFetch; },
+              set: function(v) { 
+                console.warn('Attempted to overwrite window.fetch ignored');
+              }
+            });
+          }
+        } catch (e) {
+          // If we can't redefine it, try a simpler approach
+          try {
+            window.fetch = window.fetch;
+          } catch (err) {
+            // Still read-only
+          }
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+

@@ -1,0 +1,152 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Fields:
+    //   - id: string (required, max 128)
+    //   - email: string (required, max 256)
+    //   - fullName: string (max 256)
+    //   - avatarUrl: string (max 1024)
+    //   - subscriptionTier: string (free, pro, agency)
+    //   - apiCreditsRemaining: int
+    //   - createdAt: string (ISO 8601)
+    //
+    // Collection: trend_snapshots
+    // Fields:
+    //   - trendName: string (max 256)
+    //   - trendDescription: string (max 2048)
+    //   - viralityScore: int (0-100)
+    //   - searchVolumeDelta: number
+    //   - socialVelocity: number
+    //   - sourcePlatform: string (max 64)
+    //   - suggestedLeadMagnets: list of strings (max 10 items, each max 128)
+    //   - vertical: string (max 64)
+    //   - geoTarget: string (max 64)
+    //   - createdAt: string (ISO 8601)
+    //
+    // Collection: campaigns
+    // Fields:
+    //   - userId: string (must match auth.uid)
+    //   - campaignName: string (max 256)
+    //   - status: string (draft, active, archived)
+    //   - ...
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function isDocOwner() {
+      return isAuthenticated() && request.auth.uid == resource.data.userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && 
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.subscriptionTier == 'agency' ||
+         (request.auth.token.email == "azzaouiabd86@gmail.com" && request.auth.token.email_verified == true) ||
+         (request.auth.token.email == "aeazzaoui@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.size() <= 256 &&
+             email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function isValidDateString(dateStr) {
+      return dateStr is string &&
+             dateStr.matches("^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}.*Z?$");
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+    function isValidUser(data) {
+      return data.keys().hasAll(['id', 'email', 'subscriptionTier', 'apiCreditsRemaining', 'createdAt']) &&
+             data.id == request.auth.uid &&
+             isValidEmail(data.email) &&
+             data.subscriptionTier in ['free', 'pro', 'agency'] &&
+             data.apiCreditsRemaining is int &&
+             isValidDateString(data.createdAt) &&
+             (!('fullName' in data) || (data.fullName is string && data.fullName.size() <= 256)) &&
+             (!('avatarUrl' in data) || (data.avatarUrl is string && data.avatarUrl.size() <= 1024));
+    }
+
+    function isValidTrend(data) {
+      return data.trendName is string && data.trendName.size() <= 256 &&
+             data.trendDescription is string && data.trendDescription.size() <= 2048 &&
+             data.viralityScore is number && data.viralityScore >= 0 && data.viralityScore <= 100 &&
+             data.searchVolumeDelta is number &&
+             data.socialVelocity is number &&
+             data.sourcePlatform is string && data.sourcePlatform.size() <= 64 &&
+             data.suggestedLeadMagnets is list && data.suggestedLeadMagnets.size() <= 10 &&
+             data.vertical is string && data.vertical.size() <= 64 &&
+             data.geoTarget is string && data.geoTarget.size() <= 64 &&
+             isValidDateString(data.createdAt);
+    }
+
+    function isValidCampaign(data) {
+      return data.userId == request.auth.uid &&
+             data.campaignName is string && data.campaignName.size() > 0 && data.campaignName.size() <= 256 &&
+             data.status in ['draft', 'active', 'archived'] &&
+             isValidDateString(data.createdAt);
+    }
+
+    function isValidAsset(data) {
+      return data.userId == request.auth.uid &&
+             data.assetType in ['video_script', 'landing_page_copy', 'cta_copy'] &&
+             data.content is string && data.content.size() > 0 && data.content.size() <= 10000 &&
+             isValidDateString(data.createdAt);
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      // Prevent users from creating their own 'agency' tier (privilege escalation)
+      allow create: if isOwner(userId) && isValidUser(request.resource.data) && 
+                    (request.resource.data.subscriptionTier == 'free' || isAdmin());
+      // Prevent users from updating their own tier to 'agency'
+      allow update: if isOwner(userId) && isValidUser(request.resource.data) && 
+                    request.resource.data.email == resource.data.email &&
+                    (request.resource.data.subscriptionTier == resource.data.subscriptionTier || isAdmin());
+    }
+
+    match /trend_snapshots/{trendId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isValidTrend(request.resource.data);
+      allow update: if isAdmin() && isValidTrend(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /campaigns/{campaignId} {
+      allow read: if isDocOwner() || isAdmin();
+      allow create: if isAuthenticated() && isValidCampaign(request.resource.data);
+      allow update: if isDocOwner() && isValidCampaign(request.resource.data) &&
+                    request.resource.data.userId == resource.data.userId;
+      allow delete: if isDocOwner();
+    }
+
+    match /generated_assets/{assetId} {
+      allow read: if isDocOwner() || isAdmin();
+      allow create: if isAuthenticated() && isValidAsset(request.resource.data);
+      allow update: if isDocOwner() && isValidAsset(request.resource.data) &&
+                    request.resource.data.userId == resource.data.userId;
+      allow delete: if isDocOwner();
+    }
+  }
+}

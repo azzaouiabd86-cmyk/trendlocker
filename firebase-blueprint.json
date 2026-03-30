@@ -1,0 +1,89 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "User profile and subscription data",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "fullName": { "type": "string" },
+        "avatarUrl": { "type": "string", "format": "uri" },
+        "subscriptionTier": { "type": "string", "enum": ["free", "pro", "agency"] },
+        "apiCreditsRemaining": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "email", "subscriptionTier", "apiCreditsRemaining", "createdAt"]
+    },
+    "TrendSnapshot": {
+      "title": "Trend Snapshot",
+      "description": "Cached trend data from external sources",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "vertical": { "type": "string" },
+        "geoTarget": { "type": "string" },
+        "trendName": { "type": "string" },
+        "trendDescription": { "type": "string" },
+        "viralityScore": { "type": "integer" },
+        "searchVolumeDelta": { "type": "number" },
+        "socialVelocity": { "type": "number" },
+        "sourcePlatform": { "type": "string" },
+        "suggestedLeadMagnets": { "type": "array", "items": { "type": "string" } },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "vertical", "geoTarget", "trendName", "viralityScore", "createdAt"]
+    },
+    "Campaign": {
+      "title": "Marketing Campaign",
+      "description": "User's saved campaign for a specific trend",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "trendSnapshotId": { "type": "string" },
+        "campaignName": { "type": "string" },
+        "vertical": { "type": "string" },
+        "geoTarget": { "type": "string" },
+        "trendName": { "type": "string" },
+        "selectedLeadMagnet": { "type": "string" },
+        "status": { "type": "string", "enum": ["draft", "active", "archived"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "trendSnapshotId", "campaignName", "status", "createdAt"]
+    },
+    "GeneratedAsset": {
+      "title": "Generated Asset",
+      "description": "Individual marketing asset (video script, landing page, etc.)",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "campaignId": { "type": "string" },
+        "userId": { "type": "string" },
+        "assetType": { "type": "string", "enum": ["video_script", "landing_page_copy", "cta_copy"] },
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "campaignId", "userId", "assetType", "content", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile collection"
+    },
+    "/trend_snapshots/{trendId}": {
+      "schema": "TrendSnapshot",
+      "description": "Global trend snapshots"
+    },
+    "/campaigns/{campaignId}": {
+      "schema": "Campaign",
+      "description": "User campaigns"
+    },
+    "/generated_assets/{assetId}": {
+      "schema": "GeneratedAsset",
+      "description": "Generated marketing assets"
+    }
+  }
+}
