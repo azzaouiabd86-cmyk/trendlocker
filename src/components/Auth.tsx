@@ -29,22 +29,15 @@ export default function Auth() {
 
       if (userSnap && !userSnap.exists()) {
         // Create new user profile
-        const userData: any = {
+        const userData = {
           id: user.uid,
           email: user.email,
+          fullName: user.displayName,
+          avatarUrl: user.photoURL,
           subscriptionTier: "free",
           apiCreditsRemaining: 50,
           createdAt: new Date().toISOString(),
         };
-        
-        if (user.displayName) {
-          userData.fullName = user.displayName;
-        }
-        
-        if (user.photoURL) {
-          userData.avatarUrl = user.photoURL;
-        }
-
         try {
           await setDoc(userRef, userData);
         } catch (error) {
