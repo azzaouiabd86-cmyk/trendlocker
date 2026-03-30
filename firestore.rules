@@ -81,7 +81,10 @@ service cloud.firestore {
              data.apiCreditsRemaining is int &&
              isValidDateString(data.createdAt) &&
              (!('fullName' in data) || (data.fullName is string && data.fullName.size() <= 256)) &&
-             (!('avatarUrl' in data) || (data.avatarUrl is string && data.avatarUrl.size() <= 1024));
+             (!('avatarUrl' in data) || data.avatarUrl == null || (data.avatarUrl is string && data.avatarUrl.size() <= 1024)) &&
+             (!('country' in data) || (data.country is string && data.country.size() <= 128)) &&
+             (!('phone' in data) || (data.phone is string && data.phone.size() <= 64)) &&
+             (!('howDidYouFindUs' in data) || (data.howDidYouFindUs is string && data.howDidYouFindUs.size() <= 128));
     }
 
     function isValidTrend(data) {

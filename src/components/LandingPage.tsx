@@ -10,7 +10,7 @@ export default function LandingPage() {
           <div className="flex justify-between items-center h-20">
             <div className="flex items-center gap-2">
               <TrendingUp className="w-8 h-8 text-blue-500" />
-              <h1 className="text-3xl font-bold tracking-wider uppercase">NicheRadar</h1>
+              <h1 className="text-3xl font-bold tracking-wider uppercase">Niche Raddar</h1>
             </div>
             <div className="hidden md:flex items-center space-x-8 text-lg">
               <a href="#features" className="hover:text-blue-400 transition-colors">Features</a>
@@ -88,9 +88,9 @@ export default function LandingPage() {
           <h3 className="text-4xl sm:text-5xl font-bold mb-16 text-center tracking-tight">Trusted by Top Marketers</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {[
-              { name: "Sarah Jenkins", role: "E-com Founder", text: "NicheRadar helped me find a micro-trend in the pet space that generated $40k in its first month. Absolutely invaluable tool." },
+              { name: "Sarah Jenkins", role: "E-com Founder", text: "Niche Raddar helped me find a micro-trend in the pet space that generated $40k in its first month. Absolutely invaluable tool." },
               { name: "Marcus Thorne", role: "Affiliate Marketer", text: "The AI lead magnet generator alone is worth 10x the subscription price. It saves me hours of research and writing every week." },
-              { name: "Elena Rodriguez", role: "Content Creator", text: "I use this daily to plan my TikTok content. My engagement has skyrocketed since I started riding the trends NicheRadar finds." }
+              { name: "Elena Rodriguez", role: "Content Creator", text: "I use this daily to plan my TikTok content. My engagement has skyrocketed since I started riding the trends Niche Raddar finds." }
             ].map((review, idx) => (
               <div key={idx} className="bg-gradient-to-b from-gray-900 to-black border border-gray-800 p-8 rounded-xl">
                 <div className="flex gap-1 mb-6">
@@ -116,7 +116,7 @@ export default function LandingPage() {
       <section className="py-24 bg-blue-900/20 border-t border-blue-900/50">
         <div className="max-w-4xl mx-auto px-4 text-center">
           <h3 className="text-5xl font-bold mb-8 tracking-tight">Ready to find your next winning niche?</h3>
-          <p className="text-2xl text-gray-300 mb-10">Join thousands of marketers who are already using NicheRadar to scale their businesses.</p>
+          <p className="text-2xl text-gray-300 mb-10">Join thousands of marketers who are already using Niche Raddar to scale their businesses.</p>
           <Link to="/login" className="inline-flex items-center gap-2 bg-blue-600 px-10 py-5 text-2xl rounded-md hover:bg-blue-500 transition-all font-bold tracking-wide shadow-[0_0_30px_rgba(37,99,235,0.4)]">
             Create Your Free Account <ChevronRight className="w-6 h-6" />
           </Link>
@@ -128,14 +128,14 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center gap-6">
           <div className="flex items-center gap-2">
             <TrendingUp className="w-6 h-6 text-blue-500" />
-            <span className="text-xl font-bold tracking-wider uppercase">NicheRadar</span>
+            <span className="text-xl font-bold tracking-wider uppercase">Niche Raddar</span>
           </div>
           <div className="flex flex-wrap justify-center gap-8 text-lg text-gray-400">
             <Link to="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link>
             <Link to="/terms" className="hover:text-white transition-colors">Terms & Conditions</Link>
             <Link to="/contact" className="hover:text-white transition-colors">Contact Us</Link>
           </div>
-          <p className="text-gray-500 text-lg">&copy; {new Date().getFullYear()} NicheRadar. All rights reserved.</p>
+          <p className="text-gray-500 text-lg">&copy; {new Date().getFullYear()} Niche Raddar. All rights reserved.</p>
         </div>
       </footer>
     </div>

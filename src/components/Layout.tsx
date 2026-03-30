@@ -88,9 +88,9 @@ export default function Layout() {
       )}>
         <div className="p-6 flex items-center gap-3">
           <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
-            <span className="font-bold text-lg">T</span>
+            <span className="font-bold text-lg">N</span>
           </div>
-          {isSidebarOpen && <span className="font-bold text-xl tracking-tight">TrendLocker</span>}
+          {isSidebarOpen && <span className="font-bold text-xl tracking-tight">Niche Raddar</span>}
         </div>
 
         <nav className="flex-1 px-4 space-y-2 mt-4">

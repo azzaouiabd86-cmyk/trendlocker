@@ -274,7 +274,7 @@ export default function Pricing() {
                   </Link>
                 ) : (
                   <a 
-                    href={`https://www.paypal.com/cgi-bin/webscr?cmd=_xclick&business=aeazzaoui@gmail.com&item_name=${encodeURIComponent('NicheRadar ' + plan.name + ' Plan')}&amount=${plan.priceNumber}&currency_code=USD`}
+                    href={`https://www.paypal.com/cgi-bin/webscr?cmd=_xclick&business=aeazzaoui@gmail.com&item_name=${encodeURIComponent('Niche Raddar ' + plan.name + ' Plan')}&amount=${plan.priceNumber}&currency_code=USD`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className={`w-full py-4 rounded-lg text-xl font-bold tracking-wide text-center transition-all flex items-center justify-center gap-2 ${

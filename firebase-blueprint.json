@@ -9,6 +9,9 @@
         "email": { "type": "string", "format": "email" },
         "fullName": { "type": "string" },
         "avatarUrl": { "type": "string", "format": "uri" },
+        "country": { "type": "string" },
+        "phone": { "type": "string" },
+        "howDidYouFindUs": { "type": "string" },
         "subscriptionTier": { "type": "string", "enum": ["free", "pro", "agency"] },
         "apiCreditsRemaining": { "type": "integer" },
         "createdAt": { "type": "string", "format": "date-time" }
