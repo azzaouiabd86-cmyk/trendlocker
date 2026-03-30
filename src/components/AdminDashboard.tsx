@@ -58,6 +58,7 @@ export default function AdminDashboard() {
     ],
     popularVerticals: [] as {name: string, volume: number}[],
     popularGeos: [] as {name: string, volume: number}[],
+    popularCountries: [] as {name: string, users: number}[],
     totalScansDaily: 0,
     totalScansWeekly: 0,
     totalScansMonthly: 0,
@@ -93,6 +94,7 @@ export default function AdminDashboard() {
       let proCount = 0;
       let agencyCount = 0;
       let dauCount = 0;
+      const countryCounts: Record<string, number> = {};
       
       const today = new Date().toISOString().split('T')[0];
 
@@ -104,8 +106,20 @@ export default function AdminDashboard() {
         if (user.lastLoginAt && new Date(user.lastLoginAt).toISOString().split('T')[0] === today) {
           dauCount++;
         }
+
+        if (user.country) {
+          const countryName = user.country.trim();
+          if (countryName) {
+            countryCounts[countryName] = (countryCounts[countryName] || 0) + 1;
+          }
+        }
       });
       
+      const popularCountries = Object.entries(countryCounts)
+        .map(([name, users]) => ({ name, users }))
+        .sort((a, b) => b.users - a.users)
+        .slice(0, 5);
+
       const totalUsers = users.length;
       
       // Fetch Trend Scans
@@ -163,7 +177,7 @@ export default function AdminDashboard() {
       const dau = dauCount; 
       
       // Calculate Revenue (Mock calculation based on tiers)
-      const monthlyRevenue = (proCount * 29) + (agencyCount * 99);
+      const monthlyRevenue = (proCount * 4.99) + (agencyCount * 29);
       const arpu = totalUsers > 0 ? monthlyRevenue / totalUsers : 0;
       
       // Calculate AI Cost
@@ -235,6 +249,7 @@ export default function AdminDashboard() {
         scanVolume,
         popularVerticals,
         popularGeos,
+        popularCountries,
         totalScansDaily: dailyScans,
         totalScansWeekly: weeklyScans,
         totalScansMonthly: monthlyScans,
@@ -419,14 +434,27 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* Popular Verticals & GEOs */}
+        {/* Popular Verticals & GEOs & Countries */}
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
           <h3 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
-            <Globe className="w-5 h-5 text-emerald-400" /> Top Verticals & GEOs
+            <Globe className="w-5 h-5 text-emerald-400" /> Demographics & Targets
           </h3>
           <div className="space-y-6">
             <div>
-              <h4 className="text-sm font-medium text-slate-400 mb-3 uppercase tracking-wider">Verticals</h4>
+              <h4 className="text-sm font-medium text-slate-400 mb-3 uppercase tracking-wider">User Countries</h4>
+              <div className="space-y-2">
+                {metrics.popularCountries.length > 0 ? metrics.popularCountries.map((c, i) => (
+                  <div key={c.name} className="flex justify-between items-center text-sm">
+                    <span className="text-slate-300">{i + 1}. {c.name}</span>
+                    <span className="text-slate-500">{c.users.toLocaleString()} users</span>
+                  </div>
+                )) : (
+                  <div className="text-slate-500 text-sm">No data</div>
+                )}
+              </div>
+            </div>
+            <div className="border-t border-slate-800 pt-4">
+              <h4 className="text-sm font-medium text-slate-400 mb-3 uppercase tracking-wider">Top Verticals (Scans)</h4>
               <div className="space-y-2">
                 {metrics.popularVerticals.length > 0 ? metrics.popularVerticals.map((v, i) => (
                   <div key={v.name} className="flex justify-between items-center text-sm">
@@ -438,8 +466,8 @@ export default function AdminDashboard() {
                 )}
               </div>
             </div>
-            <div>
-              <h4 className="text-sm font-medium text-slate-400 mb-3 uppercase tracking-wider">Geos</h4>
+            <div className="border-t border-slate-800 pt-4">
+              <h4 className="text-sm font-medium text-slate-400 mb-3 uppercase tracking-wider">Top Geos (Scans)</h4>
               <div className="space-y-2">
                 {metrics.popularGeos.length > 0 ? metrics.popularGeos.map((g, i) => (
                   <div key={g.name} className="flex justify-between items-center text-sm">

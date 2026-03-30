@@ -41,19 +41,18 @@ export default function Pricing() {
 
   const plans = [
     { 
-      name: "Free", 
+      name: "Starter", 
       id: "free",
       price: "$0", 
-      period: "/mo",
-      description: "Perfect for getting started and testing the waters.",
+      period: "",
+      description: "Explore, Don't Execute",
       services: [
-        "50 Monthly AI Credits",
-        "3 Trend Scans / Day",
-        "5 Saved Campaigns",
-        "Basic AI Model Quality",
-        "3 preset Verticals",
-        "US, UK, Global GEO Targets",
-        "Export to Markdown",
+        "15 Lifetime AI Credits (No monthly reset)",
+        "1 Trend Scan / Day",
+        "View top 3 trends only",
+        "US & Global GEO Targeting only",
+        "Watermarked PDF Export only",
+        "Blurred / Hidden Lead Magnets",
         "1 Team Member"
       ], 
       priceNumber: "0.00",
@@ -63,43 +62,38 @@ export default function Pricing() {
     { 
       name: "Pro", 
       id: "pro",
-      price: "$29", 
+      price: "$4.99", 
       period: "/mo",
-      description: "For serious marketers who want to dominate.",
+      description: "The Affiliate's Arsenal",
       services: [
         "500 Monthly AI Credits",
         "25 Trend Scans / Day",
-        "100 Saved Campaigns",
-        "Standard AI Model Quality",
-        "All + custom Verticals",
-        "All preset GEO Targets",
+        "Full feed + Virality scores",
+        "Unlocks Tier 1 Europe (FR, DE, UK, etc.)",
         "Export to MD, PDF, JSON",
-        "Landing Page Preview",
+        "Fully generated Lead Magnets",
         "1 Team Member"
       ], 
-      priceNumber: "29.00",
+      priceNumber: "4.99",
       highlighted: true,
       isFree: false
     },
     { 
       name: "Agency", 
       id: "agency",
-      price: "$99", 
+      price: "$29", 
       period: "/mo",
-      description: "For teams and agencies scaling their operations.",
+      description: "Full Scale Operations",
       services: [
         "5,000 Monthly AI Credits",
         "Unlimited Trend Scans",
-        "Unlimited Saved Campaigns",
-        "Premium AI Model (Gemini Pro)",
-        "All + custom Verticals",
-        "All + custom GEO Targets",
-        "Export to MD, PDF, JSON, HTML",
-        "Landing Page Preview + Custom CSS",
-        "API Access",
+        "Full feed + Custom scans",
+        "All + Custom GEO Targeting",
+        "HTML Landing Pages + API Export",
+        "AI Custom Lead Magnet Suggestions",
         "Up to 5 Team Members"
       ], 
-      priceNumber: "99.00",
+      priceNumber: "29.00",
       highlighted: false,
       isFree: false
     },
@@ -142,7 +136,7 @@ export default function Pricing() {
       const userRef = doc(db, "users", auth.currentUser.uid);
       
       // Calculate new credits based on plan
-      const newCredits = planId === 'agency' ? 5000 : planId === 'pro' ? 500 : 50;
+      const newCredits = planId === 'agency' ? 5000 : planId === 'pro' ? 500 : 15;
       
       await updateDoc(userRef, {
         subscriptionTier: planId,
@@ -227,7 +221,7 @@ export default function Pricing() {
                 
                 <div className="mb-8 flex items-baseline gap-1">
                   <span className="text-6xl font-bold tracking-tight">{plan.price}</span>
-                  <span className="text-xl text-gray-500 font-medium">{plan.period}</span>
+                  {plan.period && <span className="text-xl text-gray-500 font-medium">{plan.period}</span>}
                 </div>
                 
                 <ul className="mb-10 flex-1 space-y-4">
