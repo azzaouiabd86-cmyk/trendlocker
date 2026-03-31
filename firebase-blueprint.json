@@ -1,31 +1,27 @@
 {
   "entities": {
     "User": {
-      "title": "User Profile",
-      "description": "User profile and subscription data",
+      "title": "User",
+      "description": "User profile data",
       "type": "object",
       "properties": {
-        "id": { "type": "string" },
+        "id": { "type": "string", "description": "Firebase Auth UID" },
         "email": { "type": "string", "format": "email" },
         "fullName": { "type": "string" },
         "avatarUrl": { "type": "string", "format": "uri" },
-        "country": { "type": "string" },
-        "phone": { "type": "string" },
-        "howDidYouFindUs": { "type": "string" },
-        "subscriptionTier": { "type": "string", "enum": ["free", "pro", "agency"] },
+        "subscriptionTier": { "type": "string", "enum": ["starter", "pro", "agency"] },
         "apiCreditsRemaining": { "type": "integer" },
-        "createdAt": { "type": "string", "format": "date-time" }
+        "createdAt": { "type": "string", "format": "date-time" },
+        "lastLoginAt": { "type": "string", "format": "date-time" },
+        "country": { "type": "string" }
       },
       "required": ["id", "email", "subscriptionTier", "apiCreditsRemaining", "createdAt"]
     },
     "TrendSnapshot": {
-      "title": "Trend Snapshot",
-      "description": "Cached trend data from external sources",
+      "title": "TrendSnapshot",
+      "description": "A single trending topic discovered by AI",
       "type": "object",
       "properties": {
-        "id": { "type": "string" },
-        "vertical": { "type": "string" },
-        "geoTarget": { "type": "string" },
         "trendName": { "type": "string" },
         "trendDescription": { "type": "string" },
         "viralityScore": { "type": "integer" },
@@ -33,60 +29,42 @@
         "socialVelocity": { "type": "number" },
         "sourcePlatform": { "type": "string" },
         "suggestedLeadMagnets": { "type": "array", "items": { "type": "string" } },
-        "createdAt": { "type": "string", "format": "date-time" }
-      },
-      "required": ["id", "vertical", "geoTarget", "trendName", "viralityScore", "createdAt"]
-    },
-    "Campaign": {
-      "title": "Marketing Campaign",
-      "description": "User's saved campaign for a specific trend",
-      "type": "object",
-      "properties": {
-        "id": { "type": "string" },
-        "userId": { "type": "string" },
-        "trendSnapshotId": { "type": "string" },
-        "campaignName": { "type": "string" },
         "vertical": { "type": "string" },
         "geoTarget": { "type": "string" },
-        "trendName": { "type": "string" },
-        "selectedLeadMagnet": { "type": "string" },
-        "status": { "type": "string", "enum": ["draft", "active", "archived"] },
+        "userId": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["id", "userId", "trendSnapshotId", "campaignName", "status", "createdAt"]
+      "required": ["trendName", "trendDescription", "viralityScore", "searchVolumeDelta", "socialVelocity", "sourcePlatform", "suggestedLeadMagnets", "vertical", "geoTarget", "userId", "createdAt"]
     },
     "GeneratedAsset": {
-      "title": "Generated Asset",
-      "description": "Individual marketing asset (video script, landing page, etc.)",
+      "title": "GeneratedAsset",
+      "description": "AI generated marketing asset",
       "type": "object",
       "properties": {
-        "id": { "type": "string" },
-        "campaignId": { "type": "string" },
         "userId": { "type": "string" },
+        "campaignId": { "type": "string" },
         "assetType": { "type": "string", "enum": ["video_script", "landing_page_copy", "cta_copy"] },
         "title": { "type": "string" },
         "content": { "type": "string" },
-        "createdAt": { "type": "string", "format": "date-time" }
+        "createdAt": { "type": "string", "format": "date-time" },
+        "modelUsed": { "type": "string" },
+        "estimatedCost": { "type": "number" }
       },
-      "required": ["id", "campaignId", "userId", "assetType", "content", "createdAt"]
+      "required": ["userId", "assetType", "content", "createdAt"]
     }
   },
   "firestore": {
     "/users/{userId}": {
       "schema": "User",
-      "description": "User profile collection"
+      "description": "User profiles"
     },
     "/trend_snapshots/{trendId}": {
       "schema": "TrendSnapshot",
-      "description": "Global trend snapshots"
-    },
-    "/campaigns/{campaignId}": {
-      "schema": "Campaign",
-      "description": "User campaigns"
+      "description": "AI discovered trends"
     },
     "/generated_assets/{assetId}": {
       "schema": "GeneratedAsset",
-      "description": "Generated marketing assets"
+      "description": "Saved AI assets"
     }
   }
 }

@@ -148,9 +148,9 @@ export default function Pricing() {
       } else {
         throw new Error(data.error || 'Failed to create checkout session');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error upgrading plan:", error);
-      alert("Failed to start checkout process. Please try again.");
+      alert(`Failed to start checkout process: ${error.message || 'Unknown error'}`);
     } finally {
       setProcessing(false);
     }

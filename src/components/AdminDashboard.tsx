@@ -73,7 +73,9 @@ export default function AdminDashboard() {
       if (user) {
         try {
           const idTokenResult = await user.getIdTokenResult();
-          if (idTokenResult.claims.admin) {
+          const isHardcodedAdmin = user.email === 'azzaouiabd86@gmail.com' && user.emailVerified;
+          
+          if (idTokenResult.claims.admin || isHardcodedAdmin) {
             setIsAdmin(true);
             fetchDashboardData();
           } else {
@@ -82,8 +84,14 @@ export default function AdminDashboard() {
           }
         } catch (error) {
           console.error("Error fetching custom claims:", error);
-          setIsAdmin(false);
-          setLoading(false);
+          const isHardcodedAdmin = user.email === 'azzaouiabd86@gmail.com' && user.emailVerified;
+          if (isHardcodedAdmin) {
+            setIsAdmin(true);
+            fetchDashboardData();
+          } else {
+            setIsAdmin(false);
+            setLoading(false);
+          }
         }
       } else {
         setIsAdmin(false);

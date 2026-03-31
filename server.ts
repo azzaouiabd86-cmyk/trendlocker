@@ -1,17 +1,56 @@
-import express from "express";
-import { createServer as createViteServer } from "vite";
+import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import Stripe from "stripe";
-import admin from "firebase-admin";
-import { GoogleGenAI } from "@google/genai";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Load Firebase Config EARLY to set environment variables before other imports
+const firebaseConfigPath = path.join(process.cwd(), "firebase-applet-config.json");
+let firebaseConfig: any = {};
+if (fs.existsSync(firebaseConfigPath)) {
+  try {
+    firebaseConfig = JSON.parse(fs.readFileSync(firebaseConfigPath, "utf8"));
+    if (firebaseConfig.projectId) {
+      process.env.GOOGLE_CLOUD_PROJECT = firebaseConfig.projectId;
+      process.env.GCLOUD_PROJECT = firebaseConfig.projectId;
+      process.env.FIREBASE_PROJECT_ID = firebaseConfig.projectId;
+      process.env.GOOGLE_CLOUD_QUOTA_PROJECT = firebaseConfig.projectId;
+      process.env.FIREBASE_CONFIG = JSON.stringify(firebaseConfig);
+    }
+  } catch (e) {
+    console.error("Error loading firebase-applet-config.json:", e);
+  }
+}
+
+import express from "express";
+import { createServer as createViteServer } from "vite";
+import Stripe from "stripe";
+import admin from "firebase-admin";
+import { GoogleGenAI } from "@google/genai";
+
 // Initialize Firebase Admin
 if (!admin.apps.length) {
-  admin.initializeApp();
+  console.log(`[Firebase] Initializing Admin SDK for project: ${firebaseConfig.projectId}`);
+  
+  let credential = admin.credential.applicationDefault();
+  if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
+    try {
+      const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
+      credential = admin.credential.cert(serviceAccount);
+      console.log("[Firebase] Using provided Service Account Key for Admin SDK.");
+    } catch (e) {
+      console.error("[Firebase] Failed to parse FIREBASE_SERVICE_ACCOUNT_KEY. Make sure it is valid JSON. Falling back to ADC.", e);
+    }
+  } else {
+    console.log("[Firebase] No FIREBASE_SERVICE_ACCOUNT_KEY provided. Using Application Default Credentials (ADC). Note: ADC only works if the Firebase project is in the same Google Cloud project as this app.");
+  }
+
+  admin.initializeApp({
+    projectId: firebaseConfig.projectId,
+    credential: credential
+  });
+  console.log(`[Firebase] Admin SDK initialized. Project ID in options: ${admin.app().options.projectId}`);
 }
 const db = admin.firestore();
 
@@ -35,6 +74,7 @@ async function startServer() {
   const requireAuth = async (req: any, res: any, next: any) => {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.error('[Auth] Missing or invalid Authorization header');
       return res.status(401).json({ error: 'Unauthorized' });
     }
     const token = authHeader.split('Bearer ')[1];
@@ -42,14 +82,20 @@ async function startServer() {
       const decodedToken = await admin.auth().verifyIdToken(token);
       req.user = decodedToken;
       next();
-    } catch (error) {
-      res.status(401).json({ error: 'Unauthorized' });
+    } catch (error: any) {
+      console.error('[Auth] Token verification failed:', error.message || error);
+      res.status(401).json({ error: `Unauthorized: ${error.message || 'Invalid token'}` });
     }
   };
 
   // API routes
   app.get("/api/health", (req, res) => {
-    res.json({ status: "ok", timestamp: new Date().toISOString() });
+    res.json({ 
+      status: "ok", 
+      timestamp: new Date().toISOString(),
+      firebaseAdmin: admin.apps.length > 0 ? "initialized" : "not initialized",
+      projectId: firebaseConfig.projectId
+    });
   });
 
   // --- 8.1 Internal API Routes ---
@@ -85,28 +131,27 @@ async function startServer() {
 
       const trends = JSON.parse(response.text || '[]');
 
-      // Atomically decrement credit and save result
+      // Atomically decrement credit and save results
       const batch = db.batch();
       batch.update(userRef, {
         apiCreditsRemaining: admin.firestore.FieldValue.increment(-1)
       });
 
-      const scanId = Math.random().toString(36).substring(7);
-      const scanRef = db.collection('trend_snapshots').doc(scanId);
-      batch.set(scanRef, {
-        userId: uid,
-        vertical,
-        geoTarget: geo,
-        trends,
-        createdAt: new Date().toISOString()
-      });
+      for (const trend of trends) {
+        const trendId = Math.random().toString(36).substring(7);
+        const trendRef = db.collection('trend_snapshots').doc(trendId);
+        batch.set(trendRef, {
+          ...trend,
+          userId: uid,
+          createdAt: new Date().toISOString()
+        });
+      }
 
       await batch.commit();
 
       res.json({ 
         success: true, 
-        message: `Scan completed for ${vertical} in ${geo}`,
-        scanId,
+        message: `Scan completed for ${vertical} in ${geo}. ${trends.length} trends discovered.`,
         data: trends
       });
     } catch (error) {
@@ -165,16 +210,33 @@ async function startServer() {
     const email = req.user.email;
     const uid = req.user.uid;
     
+    console.log(`[AdminClaim] Attempting to assign claim for user: ${email} (${uid})`);
+    console.log(`[AdminClaim] Current project ID in Admin SDK: ${admin.app().options.projectId}`);
+    
     // Only allow the specific user email to claim admin rights
     if (email === 'azzaouiabd86@gmail.com') {
       try {
         await admin.auth().setCustomUserClaims(uid, { admin: true });
+        console.log(`[AdminClaim] Successfully assigned admin claim for: ${email}`);
         res.json({ success: true, message: 'Admin claim assigned successfully. Please log out and log back in.' });
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error assigning admin claim:', error);
-        res.status(500).json({ error: 'Failed to assign admin claim' });
+        // Log more details about the error if available
+        if (error.errorInfo) {
+          console.error('Error info:', JSON.stringify(error.errorInfo, null, 2));
+        }
+        res.status(500).json({ 
+          error: 'Failed to assign admin claim', 
+          details: error.message,
+          debugInfo: {
+            projectIdInOptions: admin.app().options.projectId,
+            firebaseConfigProjectId: firebaseConfig.projectId,
+            envProjectId: process.env.GOOGLE_CLOUD_PROJECT
+          }
+        });
       }
     } else {
+      console.warn(`[AdminClaim] Unauthorized attempt by: ${email}`);
       res.status(403).json({ error: 'Unauthorized' });
     }
   });
@@ -183,6 +245,8 @@ async function startServer() {
     const { planId } = req.body;
     const uid = req.user.uid;
     const email = req.user.email;
+
+    console.log(`[Billing] Creating checkout session for user ${uid} (${email}), plan: ${planId}`);
 
     try {
       const prices: Record<string, string> = {
