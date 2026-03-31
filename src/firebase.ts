@@ -11,9 +11,9 @@ const dbId = firebaseConfig.firestoreDatabaseId && firebaseConfig.firestoreDatab
   : undefined;
 
 // Initialize Firestore with long-polling for better stability in some environments
-export const db = initializeFirestore(app, {
-  experimentalForceLongPolling: true,
-}, dbId);
+export const db = dbId 
+  ? initializeFirestore(app, { experimentalForceLongPolling: true }, dbId)
+  : initializeFirestore(app, { experimentalForceLongPolling: true });
 
 async function testConnection() {
   try {

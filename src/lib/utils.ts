@@ -35,8 +35,15 @@ export interface FirestoreErrorInfo {
 }
 
 export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  let message = error instanceof Error ? error.message : String(error);
+  
+  // Provide a more helpful message for the "client is offline" error
+  if (message.includes('the client is offline')) {
+    message = "Firebase Connection Error: The client is offline. This usually means the Firestore Database has not been created yet in your Firebase Console. Please go to the Firebase Console -> Firestore Database -> Create database.";
+  }
+
   const errInfo: FirestoreErrorInfo = {
-    error: error instanceof Error ? error.message : String(error),
+    error: message,
     authInfo: {
       userId: auth.currentUser?.uid,
       email: auth.currentUser?.email,
