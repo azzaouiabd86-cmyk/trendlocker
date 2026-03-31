@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { db } from "../firebase";
-import { collection, query, orderBy, limit, onSnapshot } from "firebase/firestore";
+import { db, auth } from "../firebase";
+import { collection, query, orderBy, limit, onSnapshot, getDoc, doc } from "firebase/firestore";
 import { TrendSnapshot } from "../types";
 import { handleFirestoreError, OperationType } from "../lib/utils";
 import { 
@@ -10,17 +10,29 @@ import {
   ExternalLink, 
   Sparkles,
   Loader2,
-  ChevronRight
+  ChevronRight,
+  Lock
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 
 export default function TrendFeed() {
   const [trends, setTrends] = useState<TrendSnapshot[]>([]);
   const [loading, setLoading] = useState(true);
+  const [userTier, setUserTier] = useState('starter');
   const navigate = useNavigate();
 
   useEffect(() => {
+    const fetchUser = async () => {
+      if (auth.currentUser) {
+        const userDoc = await getDoc(doc(db, "users", auth.currentUser.uid));
+        if (userDoc.exists()) {
+          setUserTier(userDoc.data().subscriptionTier || 'starter');
+        }
+      }
+    };
+    fetchUser();
+
     const q = query(
       collection(db, "trend_snapshots"),
       orderBy("createdAt", "desc"),
@@ -49,6 +61,9 @@ export default function TrendFeed() {
     );
   }
 
+  // Starter sees top 3 only
+  const displayTrends = userTier === 'starter' ? trends.slice(0, 3) : trends;
+
   return (
     <div className="max-w-6xl mx-auto">
       <div className="mb-10 flex items-end justify-between">
@@ -64,7 +79,7 @@ export default function TrendFeed() {
 
       <div className="grid grid-cols-1 gap-6">
         <AnimatePresence>
-          {trends.map((trend, index) => (
+          {displayTrends.map((trend, index) => (
             <motion.div
               key={trend.id}
               initial={{ opacity: 0, y: 20 }}
@@ -75,7 +90,12 @@ export default function TrendFeed() {
               <div className="flex flex-col lg:flex-row gap-8">
                 {/* Score & Main Info */}
                 <div className="flex-1 flex gap-6">
-                  <div className="flex flex-col items-center justify-center w-24 h-24 bg-slate-800 rounded-2xl border border-slate-700 shrink-0">
+                  <div className="flex flex-col items-center justify-center w-24 h-24 bg-slate-800 rounded-2xl border border-slate-700 shrink-0 relative overflow-hidden">
+                    {userTier === 'starter' && (
+                      <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center z-10">
+                        <Lock className="w-6 h-6 text-slate-500" />
+                      </div>
+                    )}
                     <span className="text-xs font-bold text-slate-500 uppercase tracking-tighter mb-1">Virality</span>
                     <span className={`text-3xl font-black ${
                       trend.viralityScore >= 80 ? "text-red-500" : 
@@ -100,7 +120,12 @@ export default function TrendFeed() {
 
                 {/* Stats & Actions */}
                 <div className="flex flex-col sm:flex-row lg:flex-col gap-4 lg:w-64 border-t lg:border-t-0 lg:border-l border-slate-800 pt-6 lg:pt-0 lg:pl-8">
-                  <div className="flex-1 grid grid-cols-2 gap-4">
+                  <div className="flex-1 grid grid-cols-2 gap-4 relative">
+                    {userTier === 'starter' && (
+                      <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center z-10 rounded-xl">
+                        <Lock className="w-5 h-5 text-slate-500" />
+                      </div>
+                    )}
                     <div className="space-y-1">
                       <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Search Δ</p>
                       <div className="flex items-center gap-1 text-emerald-500 font-bold">
@@ -117,7 +142,12 @@ export default function TrendFeed() {
                     </div>
                   </div>
 
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-2 relative">
+                    {userTier === 'starter' && (
+                      <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center z-10 rounded-md">
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Hidden</span>
+                      </div>
+                    )}
                     {trend.suggestedLeadMagnets.slice(0, 2).map((lm, i) => (
                       <span key={i} className="px-2 py-1 bg-slate-800 text-slate-400 text-[10px] font-bold rounded-md border border-slate-700">
                         {lm}
@@ -138,6 +168,20 @@ export default function TrendFeed() {
           ))}
         </AnimatePresence>
       </div>
+
+      {userTier === 'starter' && trends.length > 3 && (
+        <div className="mt-8 p-8 bg-indigo-600/10 border border-indigo-500/20 rounded-3xl text-center">
+          <Lock className="w-8 h-8 text-indigo-400 mx-auto mb-4" />
+          <h3 className="text-xl font-bold text-slate-100 mb-2">Unlock Full Trend Feed</h3>
+          <p className="text-slate-400 mb-6 max-w-md mx-auto">You are currently viewing the top 3 trends. Upgrade to Pro to see the full feed, virality scores, and lead magnets.</p>
+          <Link 
+            to="/pricing"
+            className="inline-block bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 px-8 rounded-xl transition-all"
+          >
+            Upgrade to Pro
+          </Link>
+        </div>
+      )}
     </div>
   );
 }

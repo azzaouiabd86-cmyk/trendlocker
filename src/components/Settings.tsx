@@ -9,7 +9,8 @@ import {
   CreditCard, 
   Calendar,
   Loader2,
-  Sparkles
+  Sparkles,
+  Users
 } from "lucide-react";
 import { handleFirestoreError, OperationType } from "../lib/utils";
 
@@ -142,11 +143,46 @@ export default function Settings() {
                   </div>
                   <div>
                     <p className="text-indigo-400 font-bold text-lg capitalize">{profile?.subscriptionTier} Plan</p>
-                    <p className="text-slate-400 text-sm">You have {profile?.apiCreditsRemaining} intelligence credits remaining this month.</p>
+                    <p className="text-slate-400 text-sm">
+                      You have {profile?.apiCreditsRemaining} intelligence credits remaining 
+                      {profile?.subscriptionTier === 'starter' ? ' (lifetime).' : ' this month.'}
+                    </p>
                   </div>
                 </div>
                 <button className="w-full md:w-auto bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 px-8 rounded-xl transition-all shadow-lg shadow-indigo-500/20">
                   Upgrade Plan
+                </button>
+              </div>
+            </div>
+            <div className="pt-8 border-t border-slate-800 space-y-6">
+              <h2 className="text-xl font-semibold text-slate-200 flex items-center gap-2">
+                <Users className="w-5 h-5 text-indigo-400" />
+                <span>Team Members</span>
+              </h2>
+              
+              <div className="p-6 bg-slate-950/50 border border-slate-800 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-6">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-slate-800 rounded-xl flex items-center justify-center">
+                    <Users className="w-6 h-6 text-slate-400" />
+                  </div>
+                  <div>
+                    <p className="text-slate-200 font-bold text-lg">Team Management</p>
+                    <p className="text-slate-400 text-sm">
+                      {profile?.subscriptionTier === 'agency' 
+                        ? 'You can add up to 5 team members on the Agency plan.' 
+                        : 'Team members are limited to 1 on your current plan. Upgrade to Agency to add more.'}
+                    </p>
+                  </div>
+                </div>
+                <button 
+                  disabled={profile?.subscriptionTier !== 'agency'}
+                  className={`w-full md:w-auto font-bold py-3 px-8 rounded-xl transition-all ${
+                    profile?.subscriptionTier === 'agency' 
+                      ? 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-500/20' 
+                      : 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                  }`}
+                >
+                  Manage Team
                 </button>
               </div>
             </div>

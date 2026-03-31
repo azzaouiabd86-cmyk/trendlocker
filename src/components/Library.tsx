@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { db, auth } from "../firebase";
-import { collection, query, where, orderBy, onSnapshot } from "firebase/firestore";
+import { collection, query, where, onSnapshot } from "firebase/firestore";
 import { GeneratedAsset } from "../types";
 import { 
   FileText, 
@@ -26,8 +26,7 @@ export default function Library() {
 
     const q = query(
       collection(db, "generated_assets"),
-      where("userId", "==", auth.currentUser.uid),
-      orderBy("createdAt", "desc")
+      where("userId", "==", auth.currentUser.uid)
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -35,6 +34,10 @@ export default function Library() {
         id: doc.id,
         ...doc.data()
       })) as GeneratedAsset[];
+      
+      // Sort client-side to avoid needing a composite index
+      assetData.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      
       setAssets(assetData);
       setLoading(false);
     }, (error) => {

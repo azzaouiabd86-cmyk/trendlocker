@@ -2,11 +2,14 @@ import { Activity, CreditCard, TrendingUp, BarChart3, Zap, ArrowUpCircle } from 
 import { Link } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { auth, db } from "../firebase";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
 
 export default function Usage() {
   const [userData, setUserData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [scansUsed, setScansUsed] = useState(0);
+  const [campaignsUsed, setCampaignsUsed] = useState(0);
+  const [recentActivity, setRecentActivity] = useState<any[]>([]);
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
@@ -16,8 +19,67 @@ export default function Usage() {
           if (userDoc.exists()) {
             setUserData(userDoc.data());
           }
+
+          // Fetch scans used today
+          const today = new Date().toISOString().split('T')[0];
+          const scansQuery = query(
+            collection(db, "trend_snapshots"),
+            where("userId", "==", user.uid)
+          );
+          const scansSnapshot = await getDocs(scansQuery);
+          const scansToday = scansSnapshot.docs.filter(doc => doc.data().createdAt.startsWith(today)).length;
+          setScansUsed(scansToday);
+
+          // Fetch campaigns used (generated assets)
+          const campaignsQuery = query(
+            collection(db, "generated_assets"),
+            where("userId", "==", user.uid)
+          );
+          const campaignsSnapshot = await getDocs(campaignsQuery);
+          setCampaignsUsed(campaignsSnapshot.size);
+
+          // Build recent activity
+          const activities: any[] = [];
+          
+          // Group trend scans by minute to represent a single scan action
+          const scanGroups: { [key: string]: any } = {};
+          scansSnapshot.docs.forEach(doc => {
+            const data = doc.data();
+            if (!data.createdAt) return;
+            const timeKey = data.createdAt.substring(0, 16); // Group by YYYY-MM-DDTHH:mm
+            if (!scanGroups[timeKey]) {
+              scanGroups[timeKey] = {
+                action: "Trend Scan",
+                trend: data.vertical ? data.vertical.replace('_', ' ') : "General",
+                credits: -1,
+                date: new Date(data.createdAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
+                createdAt: data.createdAt,
+                isPositive: false
+              };
+            }
+          });
+          Object.values(scanGroups).forEach(group => activities.push(group));
+
+          // Add generated assets
+          campaignsSnapshot.docs.forEach(doc => {
+            const data = doc.data();
+            if (!data.createdAt) return;
+            activities.push({
+              action: `Generated ${data.assetType ? data.assetType.replace('_', ' ') : 'Asset'}`,
+              trend: data.title || "Asset",
+              credits: -1,
+              date: new Date(data.createdAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
+              createdAt: data.createdAt,
+              isPositive: false
+            });
+          });
+
+          // Sort by newest first and take top 10
+          activities.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+          setRecentActivity(activities.slice(0, 10));
+
         } catch (error) {
-          console.error("Error fetching user data:", error);
+          console.error("Error fetching usage data:", error);
         }
       } else {
         setUserData(null);
@@ -28,16 +90,12 @@ export default function Usage() {
     return () => unsubscribe();
   }, []);
 
-  const tier = userData?.subscriptionTier || 'free';
-  const credits = userData?.apiCreditsRemaining ?? 50;
-  const maxCredits = tier === 'agency' ? 5000 : tier === 'pro' ? 500 : 50;
+  const tier = userData?.subscriptionTier || 'starter';
+  const credits = userData?.apiCreditsRemaining ?? 15;
+  const maxCredits = tier === 'agency' ? 5000 : (tier === 'pro' ? 500 : 15);
   
-  // Mock values for scans and campaigns since we don't have real-time counters for them yet
-  const scansUsed = 12;
-  const maxScans = tier === 'agency' ? 'Unlimited' : tier === 'pro' ? 25 : 3;
-  
-  const campaignsUsed = 3;
-  const maxCampaigns = tier === 'agency' ? 'Unlimited' : tier === 'pro' ? 100 : 5;
+  const maxScans = tier === 'agency' ? 'Unlimited' : (tier === 'pro' ? 25 : 1);
+  const maxCampaigns = tier === 'agency' ? 'Unlimited' : (tier === 'pro' ? 100 : 5);
 
   return (
     <div className="max-w-6xl mx-auto space-y-8">
@@ -76,7 +134,7 @@ export default function Usage() {
           <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden mb-2">
             <div className="bg-indigo-500 h-full transition-all duration-500" style={{ width: `${Math.min(100, (credits / maxCredits) * 100)}%` }} />
           </div>
-          <p className="text-sm text-slate-500">Resets in 12 days</p>
+          <p className="text-sm text-slate-500">{tier === 'starter' ? 'Lifetime credits (No reset)' : 'Resets in 12 days'}</p>
         </div>
 
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
@@ -106,7 +164,7 @@ export default function Usage() {
           <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden mb-2">
             <div className="bg-amber-500 h-full transition-all duration-500" style={{ width: maxCampaigns === 'Unlimited' ? '100%' : `${Math.min(100, (campaignsUsed / (maxCampaigns as number)) * 100)}%` }} />
           </div>
-          {tier === 'free' && <p className="text-sm text-slate-500">Upgrade to Pro for 100 campaigns</p>}
+          {tier === 'starter' && <p className="text-sm text-slate-500">Upgrade to Pro for 500 monthly credits</p>}
           {tier === 'pro' && <p className="text-sm text-slate-500">Upgrade to Agency for unlimited campaigns</p>}
         </div>
       </div>
@@ -118,28 +176,29 @@ export default function Usage() {
         </div>
         
         <div className="space-y-4">
-          {[
-            { action: "Generated Landing Page", trend: "AI Productivity Tools", credits: -5, date: "Today, 10:23 AM" },
-            { action: "Trend Scan", trend: "SaaS Marketing", credits: -1, date: "Yesterday, 2:15 PM" },
-            { action: "Generated Video Script", trend: "Notion Templates", credits: -3, date: "Mar 27, 4:45 PM" },
-            { action: "Monthly Credit Reset", trend: "System", credits: "+50", date: "Mar 25, 12:00 AM", isPositive: true },
-          ].map((item, i) => (
-            <div key={i} className="flex items-center justify-between p-4 bg-slate-950 rounded-lg border border-slate-800/50">
-              <div className="flex items-center gap-4">
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${item.isPositive ? 'bg-emerald-500/10 text-emerald-400' : 'bg-indigo-500/10 text-indigo-400'}`}>
-                  {item.isPositive ? <CreditCard className="w-5 h-5" /> : <BarChart3 className="w-5 h-5" />}
-                </div>
-                <div>
-                  <p className="font-medium text-slate-200">{item.action}</p>
-                  <p className="text-sm text-slate-500">{item.trend}</p>
-                </div>
-              </div>
-              <div className="text-right">
-                <p className={`font-bold ${item.isPositive ? 'text-emerald-400' : 'text-slate-300'}`}>{item.credits} Credits</p>
-                <p className="text-sm text-slate-500">{item.date}</p>
-              </div>
+          {recentActivity.length === 0 ? (
+            <div className="text-center py-8 text-slate-500">
+              No recent activity found. Start scanning trends to see your usage here!
             </div>
-          ))}
+          ) : (
+            recentActivity.map((item, i) => (
+              <div key={i} className="flex items-center justify-between p-4 bg-slate-950 rounded-lg border border-slate-800/50">
+                <div className="flex items-center gap-4">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${item.isPositive ? 'bg-emerald-500/10 text-emerald-400' : 'bg-indigo-500/10 text-indigo-400'}`}>
+                    {item.isPositive ? <CreditCard className="w-5 h-5" /> : <BarChart3 className="w-5 h-5" />}
+                  </div>
+                  <div>
+                    <p className="font-medium text-slate-200 capitalize">{item.action}</p>
+                    <p className="text-sm text-slate-500 capitalize">{item.trend}</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className={`font-bold ${item.isPositive ? 'text-emerald-400' : 'text-slate-300'}`}>{item.credits} Credits</p>
+                  <p className="text-sm text-slate-500">{item.date}</p>
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </div>
     </div>

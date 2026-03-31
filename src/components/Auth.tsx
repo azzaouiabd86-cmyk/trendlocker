@@ -45,8 +45,8 @@ export default function Auth() {
           email: user.email,
           fullName: user.displayName,
           avatarUrl: user.photoURL,
-          subscriptionTier: "free",
-          apiCreditsRemaining: 50,
+          subscriptionTier: "starter",
+          apiCreditsRemaining: 15,
           createdAt: new Date().toISOString(),
         };
         try {
@@ -104,8 +104,8 @@ export default function Auth() {
           country: country,
           phone: phone,
           howDidYouFindUs: howDidYouFindUs,
-          subscriptionTier: "free",
-          apiCreditsRemaining: 50,
+          subscriptionTier: "starter",
+          apiCreditsRemaining: 15,
           createdAt: new Date().toISOString(),
         };
         try {

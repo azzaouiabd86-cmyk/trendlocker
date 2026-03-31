@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { db, auth } from "../firebase";
-import { doc, getDoc, collection, addDoc, updateDoc, increment } from "firebase/firestore";
+import { doc, getDoc, collection, addDoc, updateDoc, increment, query, where, getDocs } from "firebase/firestore";
 import { TrendSnapshot } from "../types";
 import { handleFirestoreError, OperationType } from "../lib/utils";
 import { 
@@ -14,7 +14,8 @@ import {
   Loader2,
   ArrowLeft,
   Sparkles,
-  Download
+  Download,
+  Lock
 } from "lucide-react";
 import { motion } from "motion/react";
 import { generateAssetsStream } from "../services/geminiService";
@@ -39,7 +40,7 @@ export default function AssetGenerator() {
   const [modelUsed, setModelUsed] = useState<string | null>(null);
   const [estimatedCost, setEstimatedCost] = useState<number | null>(null);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
-  const [userTier, setUserTier] = useState<string>('free');
+  const [userTier, setUserTier] = useState<string>('starter');
 
   useEffect(() => {
     const fetchTrendAndUser = async () => {
@@ -55,7 +56,7 @@ export default function AssetGenerator() {
         if (auth.currentUser) {
           const userDoc = await getDoc(doc(db, "users", auth.currentUser.uid));
           if (userDoc.exists()) {
-            setUserTier(userDoc.data().subscriptionTier || 'free');
+            setUserTier(userDoc.data().subscriptionTier || 'starter');
           }
         }
       } catch (error) {
@@ -105,12 +106,24 @@ export default function AssetGenerator() {
   };
 
   const handleSave = async () => {
-    if (!trend || !assets[activeTab]) return;
+    if (!trend || !assets[activeTab] || !auth.currentUser) return;
     setSaving(true);
     try {
+      // Check limit
+      const limit = userTier === 'agency' ? Infinity : (userTier === 'pro' ? 100 : 5);
+      const campaignsQuery = query(
+        collection(db, "generated_assets"),
+        where("userId", "==", auth.currentUser.uid)
+      );
+      const campaignsSnapshot = await getDocs(campaignsQuery);
+      if (campaignsSnapshot.size >= limit) {
+        alert("You have reached your limit for saved assets. Upgrade your plan to save more!");
+        return;
+      }
+
       const assetData = {
         campaignId: trendId, // Using trendId as a simple campaignId for now
-        userId: auth.currentUser?.uid,
+        userId: auth.currentUser.uid,
         assetType: activeTab,
         title: `${trend.trendName} - ${activeTab.replace('_', ' ')}`,
         content: assets[activeTab],
@@ -168,12 +181,18 @@ export default function AssetGenerator() {
             </div>
           </div>
 
-          <div className="bg-indigo-600 rounded-3xl p-6 text-white shadow-lg shadow-indigo-500/20">
+          <div className="bg-indigo-600 rounded-3xl p-6 text-white shadow-lg shadow-indigo-500/20 relative overflow-hidden">
             <h3 className="font-bold mb-2">Lead Magnet Idea</h3>
             <p className="text-indigo-100 text-sm mb-4">The AI suggests focusing on:</p>
-            <div className="bg-white/10 rounded-xl p-3 border border-white/10">
+            <div className={`bg-white/10 rounded-xl p-3 border border-white/10 ${userTier === 'starter' ? 'blur-sm select-none' : ''}`}>
               <p className="font-bold text-center">{trend.suggestedLeadMagnets[0]}</p>
             </div>
+            {userTier === 'starter' && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-indigo-900/40 backdrop-blur-[2px] z-10">
+                <Lock className="w-6 h-6 text-white mb-2" />
+                <span className="text-xs font-bold uppercase tracking-wider text-white">Pro Feature</span>
+              </div>
+            )}
           </div>
         </div>
 

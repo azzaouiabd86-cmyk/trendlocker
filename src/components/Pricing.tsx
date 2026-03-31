@@ -15,13 +15,13 @@ export default function Pricing() {
       try {
         const userDoc = await getDoc(doc(db, "users", uid));
         if (userDoc.exists()) {
-          setCurrentTier(userDoc.data().subscriptionTier || "free");
+          setCurrentTier(userDoc.data().subscriptionTier || "starter");
         } else {
-          setCurrentTier("free");
+          setCurrentTier("starter");
         }
       } catch (error) {
         console.error("Error fetching user tier:", error);
-        setCurrentTier("free");
+        setCurrentTier("starter");
       }
       setLoading(false);
     };
@@ -42,7 +42,7 @@ export default function Pricing() {
   const plans = [
     { 
       name: "Starter", 
-      id: "free",
+      id: "starter",
       price: "$0", 
       period: "",
       description: "Explore, Don't Execute",
@@ -108,7 +108,7 @@ export default function Pricing() {
       return "Current Plan";
     }
 
-    const tierOrder = { free: 0, pro: 1, agency: 2 };
+    const tierOrder = { starter: 0, pro: 1, agency: 2 };
     const currentOrder = tierOrder[currentTier as keyof typeof tierOrder] || 0;
     const planOrder = tierOrder[planId as keyof typeof tierOrder] || 0;
 
@@ -188,8 +188,8 @@ export default function Pricing() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-7xl mx-auto">
           {plans.map((plan) => {
             const isCurrentPlan = currentTier === plan.id;
-            const tierOrder = { free: 0, pro: 1, agency: 2 };
-            const currentOrder = tierOrder[(currentTier || "free") as keyof typeof tierOrder];
+            const tierOrder = { starter: 0, pro: 1, agency: 2 };
+            const currentOrder = tierOrder[(currentTier || "starter") as keyof typeof tierOrder];
             const planOrder = tierOrder[plan.id as keyof typeof tierOrder];
             const isDowngrade = currentTier && planOrder < currentOrder;
             const isUpgrade = currentTier && planOrder > currentOrder;

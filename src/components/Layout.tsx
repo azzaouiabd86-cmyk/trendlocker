@@ -1,7 +1,7 @@
 import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
 import { auth, db } from "../firebase";
 import { signOut } from "firebase/auth";
-import { doc, getDoc, updateDoc } from "firebase/firestore";
+import { doc, getDoc, updateDoc, setDoc } from "firebase/firestore";
 import { 
   Radar, 
   TrendingUp, 
@@ -56,6 +56,21 @@ export default function Layout() {
                 lastLoginAt: new Date().toISOString()
               });
             }
+          } else {
+            // Create missing user profile (e.g. after database reset)
+            const newUserData = {
+              id: user.uid,
+              email: user.email,
+              fullName: user.displayName || user.email?.split('@')[0] || "User",
+              avatarUrl: user.photoURL || null,
+              subscriptionTier: "starter",
+              apiCreditsRemaining: 15,
+              createdAt: new Date().toISOString(),
+              lastLoginAt: new Date().toISOString()
+            };
+            await setDoc(userDocRef, newUserData);
+            setUserData(newUserData);
+            console.log("Created missing user profile for:", user.uid);
           }
         } catch (error) {
           console.error("Error fetching user data:", error);
@@ -74,9 +89,9 @@ export default function Layout() {
     navigate("/login");
   };
 
-  const tier = userData?.subscriptionTier || 'free';
-  const credits = userData?.apiCreditsRemaining ?? 50;
-  const maxCredits = tier === 'agency' ? 5000 : tier === 'pro' ? 500 : 50;
+  const tier = userData?.subscriptionTier || 'starter';
+  const credits = userData?.apiCreditsRemaining ?? 15;
+  const maxCredits = tier === 'agency' ? 5000 : tier === 'pro' ? 500 : 15;
   const creditPercentage = Math.min(100, (credits / maxCredits) * 100);
 
   return (

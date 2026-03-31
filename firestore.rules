@@ -151,5 +151,10 @@ service cloud.firestore {
                     request.resource.data.userId == resource.data.userId;
       allow delete: if isDocOwner();
     }
+
+    // Allow public read for connection testing
+    match /test/connection {
+      allow read: if true;
+    }
   }
 }

@@ -23,12 +23,17 @@ export const MODEL_CONFIG = {
 };
 
 export const TIER_LIMITS = {
-  free: {
-    monthlyCredits: 50,
-    trendScansPerDay: 3,
+  starter: {
+    monthlyCredits: 0, // Lifetime, handled differently
+    trendScansPerDay: 1,
     maxCampaignsSaved: 5,
     models: ['gemini-3.1-flash-lite-preview'],
     maxCostPerRequestUSD: 0.002,
+    allowedGeos: ['global', 'us'],
+    maxTrendsViewable: 3,
+    exportFormats: ['pdf'],
+    leadMagnets: 'blurred',
+    teamMembers: 1
   },
   pro: {
     monthlyCredits: 500,
@@ -36,6 +41,11 @@ export const TIER_LIMITS = {
     maxCampaignsSaved: 100,
     models: ['gemini-3.1-flash-lite-preview', 'gemini-3-flash-preview'],
     maxCostPerRequestUSD: 0.01,
+    allowedGeos: ['global', 'us', 'uk', 'fr', 'de', 'tier1_europe'],
+    maxTrendsViewable: -1, // unlimited
+    exportFormats: ['md', 'pdf', 'json'],
+    leadMagnets: 'full',
+    teamMembers: 1
   },
   agency: {
     monthlyCredits: 5000,
@@ -43,29 +53,47 @@ export const TIER_LIMITS = {
     maxCampaignsSaved: -1, // unlimited
     models: ['gemini-3-flash-preview', 'gemini-3.1-pro-preview'],
     maxCostPerRequestUSD: 0.05,
+    allowedGeos: ['all', 'custom'],
+    maxTrendsViewable: -1,
+    exportFormats: ['html', 'api', 'md', 'pdf', 'json'],
+    leadMagnets: 'custom',
+    teamMembers: 5
   },
 };
 
 export type RequestType = 'Lead Magnet Suggestions' | 'Video Scripts' | 'Landing Page Copy' | 'CTA Copy' | 'trend_scan';
 
 export async function smartModelRouter(userId: string, requestType: RequestType, estimatedTokens: number = 1000) {
-  const userDoc = await getDoc(doc(db, "users", userId));
-  const userData = userDoc.data();
+  let userData;
+  try {
+    const userDoc = await getDoc(doc(db, "users", userId));
+    userData = userDoc.data();
+  } catch (error) {
+    console.error("Error fetching user data in router:", error);
+  }
   
-  if (!userData) {
-    throw new Error("User not found");
+  // If user not found, default to free tier with 0 credits (to force upgrade/init)
+  // or we can allow a small grace period. 
+  // Given the context of a new database, let's default to free tier.
+  const tier = userData?.subscriptionTier || 'starter';
+  const credits = userData?.apiCreditsRemaining ?? 15; // Default to 15 for starter
+  
+  // Ensure tierConfig is always valid, fallback to starter if tier is unknown
+  const tierConfig = TIER_LIMITS[tier as keyof typeof TIER_LIMITS] || TIER_LIMITS['starter'];
+
+  if (credits <= 0) {
+    throw new Error('Credits exhausted. Upgrade to continue.');
   }
 
-  const tier = userData.subscriptionTier || 'free';
-  const tierConfig = TIER_LIMITS[tier as keyof typeof TIER_LIMITS];
-
-  if (userData.apiCreditsRemaining <= 0) {
-    throw new Error('Monthly credits exhausted. Upgrade to continue.');
+  // If no user data at all, we might want to throw a more descriptive error 
+  // or just default to starter. Let's default to starter but warn.
+  if (!userData) {
+    console.warn(`User profile for ${userId} not found in Firestore. Defaulting to starter tier.`);
   }
 
   let model = 'gemini-3.1-flash-lite-preview';
 
-  if (tier === 'free') {
+  if (tier === 'starter') {
     model = 'gemini-3.1-flash-lite-preview';
   } else if (tier === 'pro') {
     if (requestType === 'Landing Page Copy') {

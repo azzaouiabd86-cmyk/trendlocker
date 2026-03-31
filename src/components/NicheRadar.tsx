@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { 
   Gamepad2, 
@@ -17,7 +17,7 @@ import {
 import { motion } from "motion/react";
 import { generateTrends } from "../services/geminiService";
 import { db, auth } from "../firebase";
-import { collection, addDoc, doc, updateDoc, increment } from "firebase/firestore";
+import { collection, addDoc, doc, updateDoc, increment, getDoc, query, where, getDocs } from "firebase/firestore";
 import { handleFirestoreError, OperationType } from "../lib/utils";
 import { smartModelRouter } from "../lib/smartRouter";
 
@@ -46,10 +46,41 @@ export default function NicheRadar() {
   const [selectedVertical, setSelectedVertical] = useState<string | null>(null);
   const [selectedGeo, setSelectedGeo] = useState('global');
   const [loading, setLoading] = useState(false);
+  const [userTier, setUserTier] = useState('starter');
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      if (auth.currentUser) {
+        const userDoc = await getDoc(doc(db, "users", auth.currentUser.uid));
+        if (userDoc.exists()) {
+          setUserTier(userDoc.data().subscriptionTier || 'starter');
+        }
+      }
+    };
+    fetchUser();
+  }, []);
 
   const handleScan = async () => {
     if (!selectedVertical || !auth.currentUser) return;
+
+    // Check limit
+    const today = new Date().toISOString().split('T')[0];
+    const scansQuery = query(
+      collection(db, "trend_snapshots"),
+      where("userId", "==", auth.currentUser.uid)
+    );
+    const scansSnapshot = await getDocs(scansQuery);
+    const scansToday = scansSnapshot.docs.filter(doc => doc.data().createdAt.startsWith(today)).length;
+    
+    // Starter: 1/day, Pro: 25/day, Agency: Unlimited
+    const limit = userTier === 'agency' ? Infinity : (userTier === 'pro' ? 25 : 1);
+    
+    if (scansToday >= limit) {
+      alert("You have reached your daily limit for trend scans. Upgrade your plan for more scans!");
+      return;
+    }
+
     setLoading(true);
     try {
       const { model, estimatedCost } = await smartModelRouter(auth.currentUser.uid, 'trend_scan');
@@ -60,6 +91,7 @@ export default function NicheRadar() {
       for (const trend of trends) {
         const trendData = {
           ...trend,
+          userId: auth.currentUser.uid,
           vertical: selectedVertical,
           geoTarget: selectedGeo,
           createdAt: new Date().toISOString(),
@@ -141,23 +173,33 @@ export default function NicheRadar() {
               </div>
               
               <div className="space-y-2">
-                {geos.map((g) => (
-                  <button
-                    key={g.id}
-                    onClick={() => setSelectedGeo(g.id)}
-                    className={`w-full flex items-center justify-between p-4 rounded-xl border transition-all ${
-                      selectedGeo === g.id 
-                        ? "bg-indigo-600/10 border-indigo-600 text-indigo-400" 
-                        : "bg-slate-800/50 border-slate-700 text-slate-400 hover:bg-slate-800 hover:text-slate-200"
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="text-xl">{g.flag}</span>
-                      <span className="font-medium">{g.name}</span>
-                    </div>
-                    {selectedGeo === g.id && <div className="w-2 h-2 bg-indigo-500 rounded-full" />}
-                  </button>
-                ))}
+                {geos.map((g) => {
+                  const isStarter = userTier === 'starter';
+                  const isRestrictedGeo = isStarter && g.id !== 'global' && g.id !== 'us';
+                  
+                  return (
+                    <button
+                      key={g.id}
+                      onClick={() => !isRestrictedGeo && setSelectedGeo(g.id)}
+                      disabled={isRestrictedGeo}
+                      className={`w-full flex items-center justify-between p-4 rounded-xl border transition-all ${
+                        isRestrictedGeo ? "opacity-50 cursor-not-allowed bg-slate-900 border-slate-800" :
+                        selectedGeo === g.id 
+                          ? "bg-indigo-600/10 border-indigo-600 text-indigo-400" 
+                          : "bg-slate-800/50 border-slate-700 text-slate-400 hover:bg-slate-800 hover:text-slate-200"
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="text-xl">{g.flag}</span>
+                        <span className="font-medium">{g.name}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {isRestrictedGeo && <span className="text-[10px] font-bold uppercase tracking-wider text-amber-500 bg-amber-500/10 px-2 py-1 rounded">Pro</span>}
+                        {selectedGeo === g.id && <div className="w-2 h-2 bg-indigo-500 rounded-full" />}
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
