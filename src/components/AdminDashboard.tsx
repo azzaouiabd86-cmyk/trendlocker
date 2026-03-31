@@ -69,10 +69,22 @@ export default function AdminDashboard() {
   });
 
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged((user) => {
-      if (user && user.email === "azzaouiabd86@gmail.com") {
-        setIsAdmin(true);
-        fetchDashboardData();
+    const unsubscribe = auth.onAuthStateChanged(async (user) => {
+      if (user) {
+        try {
+          const idTokenResult = await user.getIdTokenResult();
+          if (idTokenResult.claims.admin) {
+            setIsAdmin(true);
+            fetchDashboardData();
+          } else {
+            setIsAdmin(false);
+            setLoading(false);
+          }
+        } catch (error) {
+          console.error("Error fetching custom claims:", error);
+          setIsAdmin(false);
+          setLoading(false);
+        }
       } else {
         setIsAdmin(false);
         setLoading(false);

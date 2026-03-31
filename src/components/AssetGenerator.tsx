@@ -87,11 +87,16 @@ export default function AssetGenerator() {
         setAssets(prev => ({ ...prev, [activeTab]: fullContent }));
       }
 
-      // Deduct credits (1 credit per generation)
+      // In a real app, this would be handled by the backend during generation
+      // to prevent client-side manipulation.
       try {
-        const userRef = doc(db, "users", auth.currentUser.uid);
-        await updateDoc(userRef, {
-          apiCreditsRemaining: increment(-1)
+        const token = await auth.currentUser.getIdToken();
+        await fetch('/api/user/deduct-credit', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
         });
       } catch (error) {
         console.error("Error deducting credits:", error);

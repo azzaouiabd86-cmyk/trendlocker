@@ -35,9 +35,11 @@ export default function Layout() {
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
       if (user) {
-        if (user.email === "azzaouiabd86@gmail.com") {
-          setIsAdmin(true);
-        } else {
+        try {
+          const idTokenResult = await user.getIdTokenResult();
+          setIsAdmin(!!idTokenResult.claims.admin);
+        } catch (error) {
+          console.error("Error fetching custom claims:", error);
           setIsAdmin(false);
         }
         try {
@@ -142,6 +144,41 @@ export default function Layout() {
               <ShieldAlert className="w-5 h-5" />
               {isSidebarOpen && <span className="font-medium">Admin Panel</span>}
             </Link>
+          )}
+
+          {!isAdmin && auth.currentUser?.email === 'azzaouiabd86@gmail.com' && (
+            <button
+              onClick={async () => {
+                try {
+                  const token = await auth.currentUser?.getIdToken();
+                  const res = await fetch('/api/admin/assign-claim', {
+                    method: 'POST',
+                    headers: {
+                      'Authorization': `Bearer ${token}`
+                    }
+                  });
+                  const data = await res.json();
+                  if (data.success) {
+                    alert(data.message);
+                    // Force token refresh
+                    await auth.currentUser?.getIdToken(true);
+                    window.location.reload();
+                  } else {
+                    alert(data.error || 'Failed to assign admin claim');
+                  }
+                } catch (error) {
+                  console.error(error);
+                  alert('Error assigning admin claim');
+                }
+              }}
+              className={cn(
+                "flex items-center gap-3 p-3 rounded-xl transition-colors mt-4 w-full text-left",
+                "text-amber-400/70 hover:bg-amber-500/10 hover:text-amber-400"
+              )}
+            >
+              <ShieldAlert className="w-5 h-5" />
+              {isSidebarOpen && <span className="font-medium">Claim Admin</span>}
+            </button>
           )}
         </nav>
 

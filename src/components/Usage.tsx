@@ -1,8 +1,8 @@
-import { Activity, CreditCard, TrendingUp, BarChart3, Zap, ArrowUpCircle } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Activity, CreditCard, TrendingUp, BarChart3, Zap, ArrowUpCircle, CheckCircle } from "lucide-react";
+import { Link, useSearchParams } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { auth, db } from "../firebase";
-import { doc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
+import { doc, getDoc, collection, query, where, getDocs, getCountFromServer } from "firebase/firestore";
 
 export default function Usage() {
   const [userData, setUserData] = useState<any>(null);
@@ -10,6 +10,8 @@ export default function Usage() {
   const [scansUsed, setScansUsed] = useState(0);
   const [campaignsUsed, setCampaignsUsed] = useState(0);
   const [recentActivity, setRecentActivity] = useState<any[]>([]);
+  const [searchParams] = useSearchParams();
+  const sessionId = searchParams.get('session_id');
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
@@ -21,29 +23,46 @@ export default function Usage() {
           }
 
           // Fetch scans used today
-          const today = new Date().toISOString().split('T')[0];
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          const tomorrow = new Date(today);
+          tomorrow.setDate(tomorrow.getDate() + 1);
+
           const scansQuery = query(
             collection(db, "trend_snapshots"),
-            where("userId", "==", user.uid)
+            where("userId", "==", user.uid),
+            where("createdAt", ">=", today.toISOString()),
+            where("createdAt", "<", tomorrow.toISOString())
           );
-          const scansSnapshot = await getDocs(scansQuery);
-          const scansToday = scansSnapshot.docs.filter(doc => doc.data().createdAt.startsWith(today)).length;
-          setScansUsed(scansToday);
+          const scansSnapshot = await getCountFromServer(scansQuery);
+          setScansUsed(scansSnapshot.data().count);
 
           // Fetch campaigns used (generated assets)
           const campaignsQuery = query(
             collection(db, "generated_assets"),
             where("userId", "==", user.uid)
           );
-          const campaignsSnapshot = await getDocs(campaignsQuery);
-          setCampaignsUsed(campaignsSnapshot.size);
+          const campaignsSnapshot = await getCountFromServer(campaignsQuery);
+          setCampaignsUsed(campaignsSnapshot.data().count);
 
           // Build recent activity
+          const recentScansQuery = query(
+            collection(db, "trend_snapshots"),
+            where("userId", "==", user.uid)
+          );
+          const recentScansDocs = await getDocs(recentScansQuery);
+          
+          const recentCampaignsQuery = query(
+            collection(db, "generated_assets"),
+            where("userId", "==", user.uid)
+          );
+          const recentCampaignsDocs = await getDocs(recentCampaignsQuery);
+
           const activities: any[] = [];
           
           // Group trend scans by minute to represent a single scan action
           const scanGroups: { [key: string]: any } = {};
-          scansSnapshot.docs.forEach(doc => {
+          recentScansDocs.docs.forEach(doc => {
             const data = doc.data();
             if (!data.createdAt) return;
             const timeKey = data.createdAt.substring(0, 16); // Group by YYYY-MM-DDTHH:mm
@@ -61,7 +80,7 @@ export default function Usage() {
           Object.values(scanGroups).forEach(group => activities.push(group));
 
           // Add generated assets
-          campaignsSnapshot.docs.forEach(doc => {
+          recentCampaignsDocs.docs.forEach(doc => {
             const data = doc.data();
             if (!data.createdAt) return;
             activities.push({
@@ -99,6 +118,18 @@ export default function Usage() {
 
   return (
     <div className="max-w-6xl mx-auto space-y-8">
+      {sessionId && (
+        <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-6 flex items-center gap-4">
+          <div className="w-12 h-12 bg-emerald-500/20 rounded-full flex items-center justify-center flex-shrink-0">
+            <CheckCircle className="w-6 h-6 text-emerald-400" />
+          </div>
+          <div>
+            <h3 className="text-lg font-bold text-emerald-400">Payment Successful!</h3>
+            <p className="text-slate-300">Thank you for upgrading. Your account is being updated.</p>
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-white mb-2">Usage & Analytics</h1>

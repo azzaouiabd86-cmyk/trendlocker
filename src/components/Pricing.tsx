@@ -132,24 +132,25 @@ export default function Pricing() {
 
     setProcessing(true);
     try {
-      // Update the user's tier in Firestore
-      const userRef = doc(db, "users", auth.currentUser.uid);
-      
-      // Calculate new credits based on plan
-      const newCredits = planId === 'agency' ? 5000 : planId === 'pro' ? 500 : 15;
-      
-      await updateDoc(userRef, {
-        subscriptionTier: planId,
-        apiCreditsRemaining: newCredits,
-        updatedAt: new Date().toISOString()
+      const token = await auth.currentUser.getIdToken();
+      const response = await fetch('/api/billing/checkout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ planId })
       });
-      
-      setCurrentTier(planId);
-      alert(`Successfully upgraded to ${planName} plan!`);
-      navigate('/dashboard');
+
+      const data = await response.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        throw new Error(data.error || 'Failed to create checkout session');
+      }
     } catch (error) {
       console.error("Error upgrading plan:", error);
-      alert("Failed to upgrade plan. Please try again.");
+      alert("Failed to start checkout process. Please try again.");
     } finally {
       setProcessing(false);
     }
@@ -267,24 +268,17 @@ export default function Pricing() {
                     {getButtonText(plan.id, plan.isFree, plan.name)}
                   </Link>
                 ) : (
-                  <a 
-                    href={`https://www.paypal.com/cgi-bin/webscr?cmd=_xclick&business=aeazzaoui@gmail.com&item_name=${encodeURIComponent('Niche Raddar ' + plan.name + ' Plan')}&amount=${plan.priceNumber}&currency_code=USD`}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <button 
+                    onClick={() => handleUpgrade(plan.id, plan.name)}
+                    disabled={processing}
                     className={`w-full py-4 rounded-lg text-xl font-bold tracking-wide text-center transition-all flex items-center justify-center gap-2 ${
                       plan.highlighted 
-                        ? 'bg-[#FFC439] text-[#003087] hover:bg-[#F2B625]' 
+                        ? 'bg-blue-600 text-white hover:bg-blue-700' 
                         : 'bg-gray-800 text-white hover:bg-gray-700'
-                    }`}
+                    } ${processing ? 'opacity-70 cursor-not-allowed' : ''}`}
                   >
-                    {plan.highlighted && !currentTier ? (
-                      <>
-                        Checkout with <span className="font-black italic tracking-tighter">PayPal</span>
-                      </>
-                    ) : (
-                      getButtonText(plan.id, plan.isFree, plan.name)
-                    )}
-                  </a>
+                    {processing ? <Loader2 className="w-6 h-6 animate-spin" /> : getButtonText(plan.id, plan.isFree, plan.name)}
+                  </button>
                 )}
               </div>
             );
@@ -293,7 +287,7 @@ export default function Pricing() {
         
         <div className="mt-16 text-center">
           <p className="text-gray-500 text-lg flex items-center justify-center gap-2">
-            <Shield className="w-5 h-5" /> Secure payments processed by PayPal
+            <Shield className="w-5 h-5" /> Secure payments processed by Stripe
           </p>
         </div>
       </div>

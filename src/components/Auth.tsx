@@ -63,6 +63,9 @@ export default function Auth() {
       } else if (error.code === "auth/unauthorized-domain") {
         console.error("Auth error:", error);
         setErrorMsg("This domain is not authorized for Firebase Auth. Please add this app's URL to the Authorized Domains in your Firebase Console.");
+      } else if (error.code === "auth/network-request-failed") {
+        console.error("Auth error:", error);
+        setErrorMsg("Network error. This is usually caused by an ad blocker (like Brave Shields), a VPN/Proxy, or if your Firebase API Key has HTTP referrer restrictions that don't include this app's URL. Please disable ad blockers/VPNs or check your Google Cloud Console API Key restrictions.");
       } else {
         console.error("Auth error:", error);
         setErrorMsg(error.message);
@@ -129,6 +132,8 @@ export default function Auth() {
       } else if (error.code === "auth/operation-not-allowed") {
         setErrorMsg("Email/password accounts are not enabled. You must enable this provider in your Firebase Console to continue.");
         setShowFirebaseLink(true);
+      } else if (error.code === "auth/network-request-failed") {
+        setErrorMsg("Network error. This is usually caused by an ad blocker (like Brave Shields), a VPN/Proxy, or if your Firebase API Key has HTTP referrer restrictions that don't include this app's URL. Please disable ad blockers/VPNs or check your Google Cloud Console API Key restrictions.");
       } else {
         setErrorMsg(error.message || "An error occurred during authentication.");
       }

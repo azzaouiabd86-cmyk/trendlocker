@@ -17,7 +17,7 @@ import {
 import { motion } from "motion/react";
 import { generateTrends } from "../services/geminiService";
 import { db, auth } from "../firebase";
-import { collection, addDoc, doc, updateDoc, increment, getDoc, query, where, getDocs } from "firebase/firestore";
+import { collection, addDoc, doc, updateDoc, increment, getDoc, query, where, getCountFromServer } from "firebase/firestore";
 import { handleFirestoreError, OperationType } from "../lib/utils";
 import { smartModelRouter } from "../lib/smartRouter";
 
@@ -65,13 +65,19 @@ export default function NicheRadar() {
     if (!selectedVertical || !auth.currentUser) return;
 
     // Check limit
-    const today = new Date().toISOString().split('T')[0];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
     const scansQuery = query(
       collection(db, "trend_snapshots"),
-      where("userId", "==", auth.currentUser.uid)
+      where("userId", "==", auth.currentUser.uid),
+      where("createdAt", ">=", today.toISOString()),
+      where("createdAt", "<", tomorrow.toISOString())
     );
-    const scansSnapshot = await getDocs(scansQuery);
-    const scansToday = scansSnapshot.docs.filter(doc => doc.data().createdAt.startsWith(today)).length;
+    const snapshot = await getCountFromServer(scansQuery);
+    const scansToday = snapshot.data().count;
     
     // Starter: 1/day, Pro: 25/day, Agency: Unlimited
     const limit = userTier === 'agency' ? Infinity : (userTier === 'pro' ? 25 : 1);
@@ -83,36 +89,19 @@ export default function NicheRadar() {
 
     setLoading(true);
     try {
-      const { model, estimatedCost } = await smartModelRouter(auth.currentUser.uid, 'trend_scan');
-      
-      const trends = await generateTrends(model, selectedVertical, selectedGeo);
-      
-      // Save trends to Firestore
-      for (const trend of trends) {
-        const trendData = {
-          ...trend,
-          userId: auth.currentUser.uid,
-          vertical: selectedVertical,
-          geoTarget: selectedGeo,
-          createdAt: new Date().toISOString(),
-          modelUsed: model,
-          estimatedCost: estimatedCost
-        };
-        try {
-          await addDoc(collection(db, "trend_snapshots"), trendData);
-        } catch (error) {
-          handleFirestoreError(error, OperationType.CREATE, "trend_snapshots");
-        }
-      }
+      const token = await auth.currentUser.getIdToken();
+      const response = await fetch('/api/trends/scan', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ vertical: selectedVertical, geo: selectedGeo })
+      });
 
-      // Deduct credits (1 credit per scan)
-      try {
-        const userRef = doc(db, "users", auth.currentUser.uid);
-        await updateDoc(userRef, {
-          apiCreditsRemaining: increment(-1)
-        });
-      } catch (error) {
-        console.error("Error deducting credits:", error);
+      const data = await response.json();
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to generate trends');
       }
 
       navigate("/dashboard/trends");
